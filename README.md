@@ -15,7 +15,7 @@ A cross-platform desktop GUI (and CLI) suite of independent PDF utilities, built
 ## Requirements
 
 - Python 3.11+
-- No system binaries or OS packages required — just `pip install`.
+- No system binaries or OS packages required, just `pip install`.
 
 ## Install
 
@@ -107,7 +107,7 @@ Add one import line alongside the existing tool imports:
 import pdftoolbox.tools.my_tool  # noqa: F401
 ```
 
-That's it. The main window reads the registry at startup and automatically adds your tool to the sidebar — no other files need to change.
+That's it. The main window reads the registry at startup and automatically adds your tool to the sidebar. No other files need to change.
 
 ### Core layer convention
 
@@ -119,7 +119,7 @@ Put all PDF logic in `pdftoolbox/core/` as pure functions. Never import PySide6 
 
 ```
 pdftoolbox/
-  core/          Pure Python PDF logic — no GUI imports
+  core/          Pure Python PDF logic. No GUI imports
   tools/         GUI panels; each registers itself via @register
   app.py         QApplication entry point
   main_window.py Shell; reads the tool registry to build the sidebar
