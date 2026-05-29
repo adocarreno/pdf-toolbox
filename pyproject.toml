@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-toolbox"
+version = "1.0.0"
+description = "Cross-platform PDF utility suite — merge, split, encrypt, decrypt, and edit metadata."
+requires-python = ">=3.11"
+dependencies = [
+    "pypdf==4.3.1",
+    "cryptography>=3.1",
+    "PySide6>=6.7.0",
+]
+
+[project.scripts]
+pdf-toolbox     = "pdftoolbox.app:main"
+pdf-toolbox-cli = "pdftoolbox.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pdftoolbox*"]
