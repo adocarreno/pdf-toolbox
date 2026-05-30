@@ -2,6 +2,19 @@
 
 A cross-platform desktop GUI (and CLI) suite of independent PDF utilities, built with Python, PySide6, and pypdf.
 
+## Download
+
+Pre-built binaries are attached to every [GitHub Release](https://github.com/adocarreno/pdf-toolbox/releases):
+
+| Platform | File | Install |
+|---|---|---|
+| macOS | `PDF-Tool-Box-macOS.dmg` | Mount → drag app to Applications |
+| Windows | `PDF-Tool-Box-Windows.zip` | Extract → run `PDF Tool Box.exe` |
+| Linux | `PDF-Tool-Box-Linux.tar.gz` | Extract → run `PDF\ Tool\ Box/PDF\ Tool\ Box` |
+
+> **macOS Gatekeeper:** Because the build is unsigned, macOS blocks it on first launch.
+> Fix: **right-click the app → Open → Open** (once only).
+
 ## What it does
 
 | Tool | Description |
@@ -12,22 +25,23 @@ A cross-platform desktop GUI (and CLI) suite of independent PDF utilities, built
 | **Unsecure PDF** | Remove encryption using the correct password |
 | **Meta Editor** | Read, edit, or clear document metadata (title, author, etc.) |
 
-## Requirements
+## Run from source
 
+### Requirements
 - Python 3.11+
-- No system binaries or OS packages required, just `pip install`.
-
-## Install
+- No system binaries or OS packages required — just `pip install`.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/adocarreno/pdf-toolbox.git
 cd pdf-toolbox
-pip install -r requirements.txt
+pip install -e .        # installs all deps and registers entry points
 ```
 
-## Run the GUI
+### Run the GUI
 
 ```bash
+pdf-toolbox             # from anywhere, after pip install -e .
+# or
 python -m pdftoolbox.app
 ```
 
@@ -69,7 +83,22 @@ python -m pdftoolbox.cli metadata report.pdf --clear -o clean.pdf
 pytest
 ```
 
-All 60 tests run against the core layer and CLI. No GUI tests are included in v1.
+68 tests cover the core layer and CLI. No GUI tests in v1.
+
+## Build a native executable locally
+
+```bash
+pip install pyinstaller
+pyinstaller pdf-toolbox.spec
+```
+
+Output lands in `dist/`:
+- **macOS** → `dist/PDF Tool Box.app`
+- **Windows** → `dist/PDF Tool Box/` (folder with `PDF Tool Box.exe` inside)
+- **Linux** → `dist/PDF Tool Box/` (folder with `PDF Tool Box` binary inside)
+
+CI builds for all three platforms automatically on every push — see `.github/workflows/ci.yml`.
+Pushing a tag like `v1.1.0` triggers a GitHub Release with the platform artifacts attached.
 
 ---
 

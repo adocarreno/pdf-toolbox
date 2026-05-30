@@ -1,0 +1,162 @@
+name: CI — Test & Build
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Triggers
+#   • Every push / PR to main  →  run tests + build all three platforms
+#   • Push of a version tag     →  same, then create a GitHub Release with
+#                                  the platform artifacts attached
+# ──────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Job 1 – Tests (fast, runs on Linux only — no GUI needed for core/CLI tests)
+# ──────────────────────────────────────────────────────────────────────────────
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install pypdf==4.3.1 "cryptography>=3.1" pytest==8.2.2
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Job 2 – Build native executables (three platform runners in parallel)
+# ──────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build (${{ matrix.label }})
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+            artifact_name: PDF-Tool-Box-macOS.dmg
+
+          - os: windows-latest
+            label: Windows
+            artifact_name: PDF-Tool-Box-Windows.zip
+
+          - os: ubuntu-latest
+            label: Linux
+            artifact_name: PDF-Tool-Box-Linux.tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # ── Install Python deps ────────────────────────────────────────────────
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      # ── Linux: install Qt system libraries needed for PySide6 to import ───
+      - name: Install Qt system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 libegl1 libdbus-1-3 libfontconfig1 \
+            libxcb-xinerama0 libxcb-cursor0 libxcb-icccm4 \
+            libxkbcommon-x11-0 libxkbcommon0
+
+      # ── Build with PyInstaller ─────────────────────────────────────────────
+      - name: Build (macOS / Windows)
+        if: runner.os != 'Linux'
+        run: pyinstaller pdf-toolbox.spec
+
+      - name: Build (Linux — headless display via offscreen platform)
+        if: runner.os == 'Linux'
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: pyinstaller pdf-toolbox.spec
+
+      # ── macOS: wrap .app in a DMG ──────────────────────────────────────────
+      - name: Package → DMG (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist/dmg_staging
+          cp -r "dist/PDF Tool Box.app" dist/dmg_staging/
+          hdiutil create \
+            -volname "PDF Tool Box" \
+            -srcfolder dist/dmg_staging \
+            -ov -format UDZO \
+            "dist/PDF-Tool-Box-macOS.dmg"
+
+      # ── Windows: zip the onedir folder ────────────────────────────────────
+      - name: Package → ZIP (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "dist\PDF Tool Box" `
+            -DestinationPath "dist\PDF-Tool-Box-Windows.zip"
+
+      # ── Linux: tar.gz the onedir folder ───────────────────────────────────
+      - name: Package → tar.gz (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          tar -czf dist/PDF-Tool-Box-Linux.tar.gz -C dist "PDF Tool Box"
+
+      # ── Upload as workflow artifact ────────────────────────────────────────
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}
+          if-no-files-found: error
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Job 3 – GitHub Release  (only on version tags, e.g. v1.0.0)
+# ──────────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            | Platform | Download | Notes |
+            |---|---|---|
+            | macOS | `PDF-Tool-Box-macOS.dmg` | Mount the DMG and drag the app to Applications. See note below for Gatekeeper. |
+            | Windows | `PDF-Tool-Box-Windows.zip` | Extract the ZIP and run `PDF Tool Box.exe` inside the folder. |
+            | Linux | `PDF-Tool-Box-Linux.tar.gz` | Extract and run `./PDF\ Tool\ Box/PDF\ Tool\ Box`. |
+
+            ### macOS Gatekeeper note
+            Because this build is unsigned, macOS will block it on first launch.
+            To open it: **right-click → Open → Open** (you only need to do this once).
